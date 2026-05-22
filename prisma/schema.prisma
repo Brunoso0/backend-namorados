@@ -1,0 +1,260 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Novidade_da_casa {
+  id            Int      @id @default(autoincrement())
+  video_url     String?
+  criado_em     DateTime @default(now())
+  atualizado_em DateTime @default(now())
+}
+
+model auditoria_painel {
+  id                    Int      @id @default(autoincrement())
+  tabela_afetada        String
+  registro_id           Int
+  acao                  String
+  usuario_rh_id         Int
+  nome_usuario_snapshot String
+  data_hora             DateTime @default(now())
+}
+
+model avaliacoes {
+  id             Int      @id @default(autoincrement())
+  produto_id     Int
+  estrelas       Int
+  comentario     String?
+  data_avaliacao DateTime @default(now())
+  produtos       produtos @relation(fields: [produto_id], references: [id])
+
+  @@index([produto_id], map: "avaliacoes_produto_id_fkey")
+}
+
+model categorias {
+  id                Int        @id @default(autoincrement())
+  nome              String
+  descricao         String?
+  ativo             Boolean    @default(true)
+  atualizado_em     DateTime   @default(now())
+  criado_em         DateTime   @default(now())
+  imagem_horizontal String?
+  imagem_vertical   String?
+  icon              String?
+  produtos          produtos[]
+}
+
+model empresa_configuracoes {
+  id                Int                @id @default(autoincrement())
+  nome              String             @default("JR Coffee")
+  instagram_url     String?
+  facebook_url      String?
+  whatsapp_url      String?
+  criado_em         DateTime           @default(now())
+  atualizado_em     DateTime           @default(now())
+  empresa_enderecos empresa_enderecos?
+  empresa_horarios  empresa_horarios?
+}
+
+model empresa_enderecos {
+  id                    Int                   @id @default(autoincrement())
+  empresa_id            Int                   @unique
+  cep                   String?
+  logradouro            String?
+  numero                String?
+  complemento           String?
+  bairro                String?
+  cidade                String?
+  estado                String?
+  referencia            String?
+  latitude              Decimal?              @db.Decimal(10, 7)
+  longitude             Decimal?              @db.Decimal(10, 7)
+  criado_em             DateTime              @default(now())
+  atualizado_em         DateTime              @default(now())
+  empresa_configuracoes empresa_configuracoes @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
+}
+
+model empresa_horarios {
+  id                    Int                   @id @default(autoincrement())
+  empresa_id            Int                   @unique
+  timezone              String?               @default("America/Bahia")
+  horarios_json         String                @db.LongText
+  feriados_json         String?               @db.LongText
+  criado_em             DateTime              @default(now())
+  atualizado_em         DateTime              @default(now())
+  empresa_configuracoes empresa_configuracoes @relation(fields: [empresa_id], references: [id], onDelete: Cascade)
+}
+
+model produtos {
+  id                     Int          @id @default(autoincrement())
+  categoria_id           Int
+  nome                   String
+  descricao              String?
+  preco                  Decimal      @db.Decimal(10, 2)
+  imagem_path            String?
+  disponivel             Boolean      @default(true)
+  atualizado_em          DateTime     @default(now())
+  criado_em              DateTime     @default(now())
+  data_disponivel        DateTime?    @db.Date
+  desativar_apos_horario Boolean      @default(false)
+  horarios_producao      String?      @db.LongText
+  imagem_3d_url          String?
+  video_url              String?
+  em_destaque            Boolean?     @default(false)
+  imagem_destaque_url    String?      @db.VarChar(255)
+  ordem_destaque         Int?         @default(0)
+  avaliacoes             avaliacoes[]
+  categorias             categorias   @relation(fields: [categoria_id], references: [id])
+
+  @@index([categoria_id], map: "produtos_categoria_id_fkey")
+}
+
+model usuarios_jrcoffee {
+  id              Int               @id @default(autoincrement())
+  rh_usuario_id   Int               @unique
+  nome            String
+  email           String            @unique
+  tipo            String?
+  ativo           Boolean           @default(true)
+  ultimo_login_em DateTime?
+  criado_em       DateTime          @default(now())
+  atualizado_em   DateTime          @default(now())
+  reservas        namorados_reservas[]
+}
+
+model admins_namorados {
+  id            Int      @id @default(autoincrement())
+  nome          String   @db.VarChar(150)
+  email         String   @unique @db.VarChar(150)
+  senha_hash    String   @db.VarChar(255)
+  ativo         Boolean  @default(true)
+  criado_em     DateTime @default(now())
+  atualizado_em DateTime @default(now()) @updatedAt
+}
+
+// =========================================================================
+// MODELOS EXCLUSIVOS DO DIA DOS NAMORADOS (ADICIONADOS)
+// =========================================================================
+
+model namorados_clientes {
+  id            Int                  @id @default(autoincrement())
+  nome_completo String               @db.VarChar(150)
+  email         String               @unique @db.VarChar(150)
+  whatsapp      String               @db.VarChar(20)
+  senha_hash    String?              @db.VarChar(255)
+  criado_em     DateTime             @default(now())
+  atualizado_em DateTime             @default(now()) @updatedAt
+  reservas      namorados_reservas[]
+}
+
+model namorados_cardapio {
+  id                 Int                             @id @default(autoincrement())
+  nome               String                          @db.VarChar(150)
+  descricao          String?                         @db.Text
+  tipo_item          TipoItemNamorados
+  preco_garrafa      Decimal?                        @db.Decimal(10, 2)
+  preco_taca         Decimal?                        @db.Decimal(10, 2)
+  estoque_disponivel Int                             @default(0)
+  ativo              Boolean                         @default(true)
+  criado_em          DateTime                        @default(now())
+  entradas_reserva   namorados_reservas[]            @relation("ReservaEntrada")
+  principais_reserva namorados_reserva_integrantes[] @relation("IntegrantePrincipal")
+  sobremesas_reserva namorados_reserva_integrantes[] @relation("IntegranteSobremesa")
+  bebidas_reserva    namorados_reserva_bebidas[]
+}
+
+enum TipoItemNamorados {
+  entrada
+  principal
+  sobremesa
+  bebida
+}
+
+model namorados_mesas {
+  id                Int               @id @default(autoincrement())
+  numero_mesa       Int
+  andar             Int               @default(0)
+  capacidade_maxima Int               @default(2)
+  horario_slot      HorarioSlot
+  status            StatusMesa        @default(disponivel)
+  bloqueada_ate     DateTime?
+  sessao_bloqueio   String?           @db.VarChar(100)
+  posicao_x         Int?
+  posicao_y         Int?
+  criado_em         DateTime          @default(now())
+  reservas          namorados_reservas[]
+
+  @@unique([numero_mesa, horario_slot], name: "uq_mesa_horario")
+}
+
+enum HorarioSlot {
+  slot_19_00 @map("19:00")
+  slot_21_30 @map("21:30")
+}
+
+enum StatusMesa {
+  disponivel
+  reservada
+  bloqueada
+}
+
+model namorados_reservas {
+  id                   Int                             @id @default(autoincrement())
+  cliente_id           Int
+  administrador_id     Int?
+  mesa_id              Int
+  entrada_cardapio_id  Int
+  observacoes          String?                         @db.Text
+  foto_url             String?                         @db.VarChar(255)
+  status_pagamento     StatusPagamento                 @default(pendente)
+  valor_total          Decimal                         @db.Decimal(10, 2)
+  transacao_gateway_id String?                         @db.VarChar(100)
+  token_voucher        String                          @unique @db.VarChar(64)
+  criado_em            DateTime                        @default(now())
+  
+  cliente              namorados_clientes              @relation(fields: [cliente_id], references: [id])
+  administrador        usuarios_jrcoffee?              @relation(fields: [administrador_id], references: [id])
+  mesa                 namorados_mesas                 @relation(fields: [mesa_id], references: [id])
+  entrada              namorados_cardapio              @relation("ReservaEntrada", fields: [entrada_cardapio_id], references: [id])
+  integrantes          namorados_reserva_integrantes[]
+  bebidas_intencao     namorados_reserva_bebidas[]
+}
+
+enum StatusPagamento {
+  pendente
+  pago
+  cancelado
+  estornado
+}
+
+model namorados_reserva_integrantes {
+  id                    Int                @id @default(autoincrement())
+  reserva_id            Int
+  nome_integrante       String             @db.VarChar(100)
+  principal_cardapio_id Int
+  sobremesa_cardapio_id Int
+
+  reserva               namorados_reservas @relation(fields: [reserva_id], references: [id], onDelete: Cascade)
+  principal             namorados_cardapio @relation("IntegrantePrincipal", fields: [principal_cardapio_id], references: [id])
+  sobremesa             namorados_cardapio @relation("IntegranteSobremesa", fields: [sobremesa_cardapio_id], references: [id])
+}
+
+model namorados_reserva_bebidas {
+  id                 Int                @id @default(autoincrement())
+  reserva_id         Int
+  bebida_cardapio_id Int
+  tipo_consumo       TipoConsumo
+  quantidade         Int                @default(1)
+
+  reserva            namorados_reservas @relation(fields: [reserva_id], references: [id], onDelete: Cascade)
+  bebida             namorados_cardapio @relation(fields: [bebida_cardapio_id], references: [id])
+}
+
+enum TipoConsumo {
+  garrafa
+  taca
+}
