@@ -45,7 +45,7 @@ export class EventoService {
     }
 
     const tokenVoucher = `VCH-${Math.random().toString(36).substr(2, 9).toUpperCase()}-${Date.now().toString().slice(-4)}`;
-    const valorTotal = 350.00; // Aqui você pode implementar a lógica de somar o valor depois
+    const valorTotal = 480.00; // Valor padrão da reserva (Pacote casal)
 
     const reserva = await prisma.$transaction(async (tx) => {
       const dbCliente = await tx.namorados_clientes.upsert({
@@ -72,8 +72,7 @@ export class EventoService {
             reserva_id: novaReserva.id,
             nome_integrante: i.nome_integrante,
             principal_cardapio_id: i.principal_cardapio_id,
-            sobremesa_cardapio_id: i.sobremesa_cardapio_id,
-            alergias: i.alergias
+            sobremesa_cardapio_id: i.sobremesa_cardapio_id
           }))
         });
       }
@@ -123,8 +122,7 @@ export class EventoService {
       observacoes: reserva.observacoes,
       integrantes: reserva.integrantes.map(i => ({
         nome: i.nome_integrante,
-        prato: i.principal.nome,
-        alergias: i.alergias
+        prato: i.principal.nome
       }))
     };
   }

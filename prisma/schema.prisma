@@ -114,15 +114,15 @@ model produtos {
 }
 
 model usuarios_jrcoffee {
-  id              Int               @id @default(autoincrement())
-  rh_usuario_id   Int               @unique
+  id              Int                  @id @default(autoincrement())
+  rh_usuario_id   Int                  @unique
   nome            String
-  email           String            @unique
+  email           String               @unique
   tipo            String?
-  ativo           Boolean           @default(true)
+  ativo           Boolean              @default(true)
   ultimo_login_em DateTime?
-  criado_em       DateTime          @default(now())
-  atualizado_em   DateTime          @default(now())
+  criado_em       DateTime             @default(now())
+  atualizado_em   DateTime             @default(now())
   reservas        namorados_reservas[]
 }
 
@@ -135,10 +135,6 @@ model admins_namorados {
   criado_em     DateTime @default(now())
   atualizado_em DateTime @default(now()) @updatedAt
 }
-
-// =========================================================================
-// MODELOS EXCLUSIVOS DO DIA DOS NAMORADOS (ADICIONADOS)
-// =========================================================================
 
 model namorados_clientes {
   id            Int                  @id @default(autoincrement())
@@ -161,45 +157,27 @@ model namorados_cardapio {
   estoque_disponivel Int                             @default(0)
   ativo              Boolean                         @default(true)
   criado_em          DateTime                        @default(now())
-  entradas_reserva   namorados_reservas[]            @relation("ReservaEntrada")
+  bebidas_reserva    namorados_reserva_bebidas[]
   principais_reserva namorados_reserva_integrantes[] @relation("IntegrantePrincipal")
   sobremesas_reserva namorados_reserva_integrantes[] @relation("IntegranteSobremesa")
-  bebidas_reserva    namorados_reserva_bebidas[]
-}
-
-enum TipoItemNamorados {
-  entrada
-  principal
-  sobremesa
-  bebida
+  entradas_reserva   namorados_reservas[]            @relation("ReservaEntrada")
 }
 
 model namorados_mesas {
-  id                Int               @id @default(autoincrement())
+  id                Int                  @id @default(autoincrement())
   numero_mesa       Int
-  andar             Int               @default(0)
-  capacidade_maxima Int               @default(2)
+  andar             Int                  @default(0)
+  capacidade_maxima Int                  @default(2)
   horario_slot      HorarioSlot
-  status            StatusMesa        @default(disponivel)
+  status            StatusMesa           @default(disponivel)
   bloqueada_ate     DateTime?
-  sessao_bloqueio   String?           @db.VarChar(100)
+  sessao_bloqueio   String?              @db.VarChar(100)
   posicao_x         Int?
   posicao_y         Int?
-  criado_em         DateTime          @default(now())
+  criado_em         DateTime             @default(now())
   reservas          namorados_reservas[]
 
   @@unique([numero_mesa, horario_slot], name: "uq_mesa_horario")
-}
-
-enum HorarioSlot {
-  slot_19_00 @map("19:00")
-  slot_21_30 @map("21:30")
-}
-
-enum StatusMesa {
-  disponivel
-  reservada
-  bloqueada
 }
 
 model namorados_reservas {
@@ -214,21 +192,21 @@ model namorados_reservas {
   valor_total          Decimal                         @db.Decimal(10, 2)
   transacao_gateway_id String?                         @db.VarChar(100)
   token_voucher        String                          @unique @db.VarChar(64)
+  check_in_realizado   Boolean                         @default(false)
+  data_check_in        DateTime?
+  finalizada           Boolean                         @default(false)
   criado_em            DateTime                        @default(now())
-  
-  cliente              namorados_clientes              @relation(fields: [cliente_id], references: [id])
-  administrador        usuarios_jrcoffee?              @relation(fields: [administrador_id], references: [id])
-  mesa                 namorados_mesas                 @relation(fields: [mesa_id], references: [id])
-  entrada              namorados_cardapio              @relation("ReservaEntrada", fields: [entrada_cardapio_id], references: [id])
-  integrantes          namorados_reserva_integrantes[]
   bebidas_intencao     namorados_reserva_bebidas[]
-}
+  integrantes          namorados_reserva_integrantes[]
+  administrador        usuarios_jrcoffee?              @relation(fields: [administrador_id], references: [id])
+  cliente              namorados_clientes              @relation(fields: [cliente_id], references: [id])
+  entrada              namorados_cardapio              @relation("ReservaEntrada", fields: [entrada_cardapio_id], references: [id])
+  mesa                 namorados_mesas                 @relation(fields: [mesa_id], references: [id])
 
-enum StatusPagamento {
-  pendente
-  pago
-  cancelado
-  estornado
+  @@index([administrador_id], map: "namorados_reservas_administrador_id_fkey")
+  @@index([cliente_id], map: "namorados_reservas_cliente_id_fkey")
+  @@index([entrada_cardapio_id], map: "namorados_reservas_entrada_cardapio_id_fkey")
+  @@index([mesa_id], map: "namorados_reservas_mesa_id_fkey")
 }
 
 model namorados_reserva_integrantes {
@@ -237,10 +215,13 @@ model namorados_reserva_integrantes {
   nome_integrante       String             @db.VarChar(100)
   principal_cardapio_id Int
   sobremesa_cardapio_id Int
-
-  reserva               namorados_reservas @relation(fields: [reserva_id], references: [id], onDelete: Cascade)
   principal             namorados_cardapio @relation("IntegrantePrincipal", fields: [principal_cardapio_id], references: [id])
+  reserva               namorados_reservas @relation(fields: [reserva_id], references: [id], onDelete: Cascade)
   sobremesa             namorados_cardapio @relation("IntegranteSobremesa", fields: [sobremesa_cardapio_id], references: [id])
+
+  @@index([principal_cardapio_id], map: "namorados_reserva_integrantes_principal_cardapio_id_fkey")
+  @@index([reserva_id], map: "namorados_reserva_integrantes_reserva_id_fkey")
+  @@index([sobremesa_cardapio_id], map: "namorados_reserva_integrantes_sobremesa_cardapio_id_fkey")
 }
 
 model namorados_reserva_bebidas {
@@ -249,9 +230,36 @@ model namorados_reserva_bebidas {
   bebida_cardapio_id Int
   tipo_consumo       TipoConsumo
   quantidade         Int                @default(1)
-
-  reserva            namorados_reservas @relation(fields: [reserva_id], references: [id], onDelete: Cascade)
   bebida             namorados_cardapio @relation(fields: [bebida_cardapio_id], references: [id])
+  reserva            namorados_reservas @relation(fields: [reserva_id], references: [id], onDelete: Cascade)
+
+  @@index([bebida_cardapio_id], map: "namorados_reserva_bebidas_bebida_cardapio_id_fkey")
+  @@index([reserva_id], map: "namorados_reserva_bebidas_reserva_id_fkey")
+}
+
+enum TipoItemNamorados {
+  entrada
+  principal
+  sobremesa
+  bebida
+}
+
+enum HorarioSlot {
+  slot_19_00 @map("19:00")
+  slot_21_30 @map("21:30")
+}
+
+enum StatusMesa {
+  disponivel
+  reservada
+  bloqueada
+}
+
+enum StatusPagamento {
+  pendente
+  pago
+  cancelado
+  estornado
 }
 
 enum TipoConsumo {

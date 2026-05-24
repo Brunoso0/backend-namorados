@@ -37,6 +37,16 @@ export class EventoController {
     }
   }
 
+  async fazerUpload(req, res) {
+    try {
+      if (!req.file) return res.status(400).json({ sucesso: false, erro: 'ARQUIVO_NAO_ENVIADO' });
+      const url = `http://localhost:${process.env.PORT || 3003}/uploads/${req.file.filename}`;
+      return res.status(200).json({ sucesso: true, url });
+    } catch (error) {
+      return res.status(500).json({ sucesso: false, erro: error.message });
+    }
+  }
+
   async criarReserva(req, res) {
     try {
       const resultado = await eventoService.criarReservaCompleta(req.body);

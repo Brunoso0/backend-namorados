@@ -14,8 +14,7 @@ export const reservaSchema = z.object({
   integrantes: z.array(z.object({
     nome_integrante: z.string().min(2),
     principal_cardapio_id: z.number().int(),
-    sobremesa_cardapio_id: z.number().int(),
-    alergias: z.string().optional().nullable()
+    sobremesa_cardapio_id: z.number().int()
   })).min(1, 'A reserva precisa ter pelo menos um integrante'),
   bebidas_intencao: z.array(z.object({
     bebida_cardapio_id: z.number().int(),
