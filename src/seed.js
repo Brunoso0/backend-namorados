@@ -51,7 +51,7 @@ async function main() {
       count++;
     }
     // 10 tables for 1 Andar (andar = 1)
-    for (let i = 19; i <= 28; i++) {
+      for (let i = 19; i <= 29; i++) {
       await prisma.namorados_mesas.create({
         data: {
           numero_mesa: i,
