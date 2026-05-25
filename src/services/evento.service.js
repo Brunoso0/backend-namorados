@@ -62,7 +62,7 @@ export class EventoService {
           observacoes,
           foto_url,
           valor_total: valorTotal,
-          token_voucher,
+          token_voucher: tokenVoucher,
         }
       });
 
