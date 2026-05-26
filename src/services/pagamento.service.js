@@ -15,8 +15,8 @@ export async function createPreference({ reservaId, items, payer, back_urls }) {
     auto_return: 'approved',
   };
 
-  const response = await mercadopago.preferences.create(preference);
-  return response.body;
+  const response = await mercadopago.preferences.create({ body: preference });
+  return response;
 }
 
 export async function handleNotification(id, topic) {
@@ -26,17 +26,17 @@ export async function handleNotification(id, topic) {
     if (!id) return null;
 
     if (topic === 'payment' || topic === 'payment.created' || topic === 'payment.updated') {
-      const resp = await mercadopago.payment.get(id);
-      paymentData = resp.body;
+      const resp = await mercadopago.payment.get({ id });
+      paymentData = resp;
     } else if (topic === 'merchant_order') {
-      const resp = await mercadopago.merchant_orders.get(id);
-      const payments = resp.body.payments || [];
+      const resp = await mercadopago.merchant_orders.get({ merchantOrderId: id });
+      const payments = resp.payments || [];
       paymentData = payments[0] || null;
     } else {
       // fallback: try to get payment
       try {
-        const resp = await mercadopago.payment.get(id);
-        paymentData = resp.body;
+        const resp = await mercadopago.payment.get({ id });
+        paymentData = resp;
       } catch (e) {
         paymentData = null;
       }
