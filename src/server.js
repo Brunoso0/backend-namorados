@@ -13,7 +13,32 @@ import { fileURLToPath } from 'url';
 dotenv.config();
 
 const app = express();
-app.use(cors());
+const corsOptions = {
+  origin: (origin, callback) => {
+    // allow requests with no origin (e.g. mobile apps, curl, server-to-server)
+    if (!origin) return callback(null, true);
+    try {
+      const u = new URL(origin);
+      const hostname = u.hostname;
+      const port = u.port;
+
+      // allow localhost:3000 and 127.0.0.1:3000
+      if ((hostname === 'localhost' || hostname === '127.0.0.1') && port === '3000') return callback(null, true);
+
+      // allow jrcoffee.com.br and any subdomain (https or http)
+      if (hostname === 'jrcoffee.com.br' || hostname.endsWith('.jrcoffee.com.br')) return callback(null, true);
+
+      return callback(new Error('Not allowed by CORS'));
+    } catch (e) {
+      return callback(new Error('Invalid origin'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Correção para usar __dirname em ES Modules e servir a pasta estática
