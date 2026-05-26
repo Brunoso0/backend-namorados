@@ -13,31 +13,29 @@ import { fileURLToPath } from 'url';
 dotenv.config();
 
 const app = express();
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  'https://namorados.jrcoffee.com.br',
+  'http://namorados.jrcoffee.com.br',
+  'https://jrcoffee.com.br',
+  'http://jrcoffee.com.br',
+];
+
 const corsOptions = {
   origin: (origin, callback) => {
-    // allow requests with no origin (e.g. mobile apps, curl, server-to-server)
+    // allow requests with no origin (e.g. server-to-server, curl)
     if (!origin) return callback(null, true);
-    try {
-      const u = new URL(origin);
-      const hostname = u.hostname;
-      const port = u.port;
-
-      // allow localhost:3000 and 127.0.0.1:3000
-      if ((hostname === 'localhost' || hostname === '127.0.0.1') && port === '3000') return callback(null, true);
-
-      // allow jrcoffee.com.br and any subdomain (https or http)
-      if (hostname === 'jrcoffee.com.br' || hostname.endsWith('.jrcoffee.com.br')) return callback(null, true);
-
-      return callback(new Error('Not allowed by CORS'));
-    } catch (e) {
-      return callback(new Error('Invalid origin'));
-    }
+    if (allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
 };
 
+// Ensure preflight requests are handled
+app.options('*', cors(corsOptions));
 app.use(cors(corsOptions));
 app.use(express.json());
 
