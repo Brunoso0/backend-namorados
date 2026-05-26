@@ -6,6 +6,7 @@ import { adicionarClientePainel } from './config/sse.js';
 import eventoRoutes from './routes/evento.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 import cardapioRoutes from './routes/cardapio.routes.js';
+import pagamentoRoutes from './routes/pagamento.routes.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -34,6 +35,7 @@ app.get('/api/v1/admin/notificacoes-checkin', (req, res) => {
 // Acopla as rotas limpas no prefixo da API
 app.use('/api/v1/evento', eventoRoutes);
 app.use('/api/v1/admin', adminRoutes);
+app.use('/api/v1/pagamento', pagamentoRoutes);
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {

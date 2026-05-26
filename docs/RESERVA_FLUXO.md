@@ -54,8 +54,8 @@ return cardapio;
 const mesas = await prisma.namorados_mesas.findMany({ where: { horario_slot } });
 return mesas;
 ```
-- Observações: o `horario_slot` é enum (`slot_19_00`, `slot_21_30`). A seed já cria 28 mesas (1–28) por slot; mesa 18 tem `capacidade_maxima: 10`, as demais 2.
- - Observações: o `horario_slot` é enum (`slot_19_00`, `slot_21_30`). O `src/seed.js` cria 29 mesas (1–18 no térreo, 19–29 no andar 1) por slot; mesa 18 tem `capacidade_maxima: 10`, as demais 2.
+ - Observações: o `horario_slot` é enum (`slot_19_00`, `slot_21_00`). A seed já cria 28 mesas (1–28) por slot; mesa 18 tem `capacidade_maxima: 10`, as demais 2.
+ - Observações: o `horario_slot` é enum (`slot_19_00`, `slot_21_00`). O `src/seed.js` cria 29 mesas (1–18 no térreo, 19–29 no andar 1) por slot; mesa 18 tem `capacidade_maxima: 10`, as demais 2.
 - Response (200):
 ```json
 {
@@ -177,7 +177,7 @@ await prisma.$transaction(async (tx) => {
 ```
 
 ## População inicial (seed)
-- O arquivo `src/seed.js` cria o cardápio e as mesas para os slots `slot_19_00` e `slot_21_30`.
+ - O arquivo `src/seed.js` cria o cardápio e as mesas para os slots `slot_19_00` e `slot_21_00`.
 - Comportamento: remove dados antigos (`deleteMany`) e recria itens; para mesa 18 define `capacidade_maxima: 10`.
  - Comportamento: remove dados antigos (`deleteMany`) e recria itens; cria 29 mesas por slot (1–29) e define `capacidade_maxima: 10` para a mesa 18.
 - Para rodar localmente:
@@ -194,7 +194,7 @@ node src/seed.js
 - Sempre usar transações ao criar reserva para manter consistência entre mesas e reservas.
 - Validar concorrência: bloquear mesa antes de criar a reserva (fluxo UI deve pedir bloqueio e enviar a mesma `sessao_bloqueio` ao criar a reserva).
 - Tratar corretamente `bloqueada_ate` para liberar bloqueios expirados.
-- Garantir enum `HorarioSlot` esteja alinhado com a UI (use os valores `slot_19_00` e `slot_21_30`).
+ - Garantir enum `HorarioSlot` esteja alinhado com a UI (use os valores `slot_19_00` e `slot_21_00`).
 
 ---
 

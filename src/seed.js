@@ -33,8 +33,8 @@ async function main() {
   }
   console.log('Seeded menu items.');
 
-  // Seed mesas for slot 19:00 and slot 21:30
-  const slots = ['slot_19_00', 'slot_21_30'];
+  // Seed mesas for slot 19:00 and slot 21:00
+  const slots = ['slot_19_00', 'slot_21_00'];
   let count = 0;
   for (const slot of slots) {
     // 18 tables for Terreo (andar = 0)

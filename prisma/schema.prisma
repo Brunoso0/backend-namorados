@@ -246,7 +246,7 @@ enum TipoItemNamorados {
 
 enum HorarioSlot {
   slot_19_00 @map("19:00")
-  slot_21_30 @map("21:30")
+  slot_21_00 @map("21:00")
 }
 
 enum StatusMesa {
