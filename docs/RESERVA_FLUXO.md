@@ -177,13 +177,14 @@ await prisma.$transaction(async (tx) => {
 ```
 
 ## População inicial (seed)
- - O arquivo `src/seed.js` cria o cardápio e as mesas para os slots `slot_19_00` e `slot_21_00`.
-- Comportamento: remove dados antigos (`deleteMany`) e recria itens; para mesa 18 define `capacidade_maxima: 10`.
- - Comportamento: remove dados antigos (`deleteMany`) e recria itens; cria 29 mesas por slot (1–29) e define `capacidade_maxima: 10` para a mesa 18.
-- Para rodar localmente:
+
+- Observação: o script de seed foi removido do repositório para evitar recriações acidentais das mesas em ambientes com dados existentes.
+- Se precisar repopular dados em um ambiente de desenvolvimento limpo, cree um script temporário que insira apenas os registros necessários ou utilize migrações SQL controladas.
+- Para inspeção manual das tabelas use:
 
 ```bash
-node src/seed.js
+npx prisma studio
+node src/check-db.js
 ```
 
 ## Verificação rápida
