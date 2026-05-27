@@ -53,9 +53,14 @@ export class EventoController {
       // resultado deve conter init_point e reserva_id
       return res.status(201).json({ sucesso: true, ...resultado });
     } catch (error) {
+      // Log full error for debugging
+      console.error('Erro criarReserva:', error);
       if (error.message === 'MESA_INDISPONIVEL') return res.status(409).json({ sucesso: false, erro: error.message });
       if (error.message === 'DADOS_INVALIDOS_SERVER') return res.status(400).json({ sucesso: false, erro: 'DADOS_INVALIDOS', detalhes: error.details || [] });
-      return res.status(500).json({ sucesso: false, erro: error.message });
+      if (error.message === 'ERRO_PAGAMENTO') return res.status(502).json({ sucesso: false, erro: 'ERRO_PAGAMENTO', detalhes: error.details || 'Erro ao comunicar com gateway' });
+      // Return error message and stack in development to help debugging
+      const isDev = (process.env.NODE_ENV || '').includes('dev') || process.env.NODE_ENV === 'development';
+      return res.status(500).json({ sucesso: false, erro: error.message || 'ERRO_INTERNO', detalhes: isDev ? (error.stack || error) : undefined });
     }
   }
 

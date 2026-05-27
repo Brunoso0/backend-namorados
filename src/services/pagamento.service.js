@@ -16,10 +16,12 @@ async function buildItemsAndTotalFromReserva(reservaId) {
   const items = [];
   let total = 0;
 
-  // Entrada
+  // Entrada (only add to items if there is a positive price)
   if (reserva.entrada) {
     const preco = Number(reserva.entrada.preco_garrafa || reserva.entrada.preco_taca || 0);
-    items.push({ title: `Entrada: ${reserva.entrada.nome}`, quantity: 1, unit_price: preco });
+    if (preco > 0) {
+      items.push({ title: `Entrada: ${reserva.entrada.nome}`, quantity: 1, unit_price: preco });
+    }
     total += preco;
   }
 
@@ -27,12 +29,16 @@ async function buildItemsAndTotalFromReserva(reservaId) {
   for (const integ of reserva.integrantes || []) {
     if (integ.principal) {
       const preco = Number(integ.principal.preco_garrafa || integ.principal.preco_taca || 0);
-      items.push({ title: `Principal: ${integ.principal.nome}`, quantity: 1, unit_price: preco });
+      if (preco > 0) {
+        items.push({ title: `Principal: ${integ.principal.nome}`, quantity: 1, unit_price: preco });
+      }
       total += preco;
     }
     if (integ.sobremesa) {
       const preco = Number(integ.sobremesa.preco_garrafa || integ.sobremesa.preco_taca || 0);
-      items.push({ title: `Sobremesa: ${integ.sobremesa.nome}`, quantity: 1, unit_price: preco });
+      if (preco > 0) {
+        items.push({ title: `Sobremesa: ${integ.sobremesa.nome}`, quantity: 1, unit_price: preco });
+      }
       total += preco;
     }
   }
@@ -42,7 +48,9 @@ async function buildItemsAndTotalFromReserva(reservaId) {
     const bebida = b.bebida;
     if (!bebida) continue;
     const preco = b.tipo_consumo === 'garrafa' ? Number(bebida.preco_garrafa || 0) : Number(bebida.preco_taca || 0);
-    items.push({ title: `Bebida: ${bebida.nome}`, quantity: b.quantidade || 1, unit_price: preco });
+    if (preco > 0) {
+      items.push({ title: `Bebida: ${bebida.nome}`, quantity: b.quantidade || 1, unit_price: preco });
+    }
     total += preco * (b.quantidade || 1);
   }
 
@@ -52,14 +60,17 @@ async function buildItemsAndTotalFromReserva(reservaId) {
 export async function createPreference({ reservaId, payer, back_urls }) {
   // Build items and total server-side to avoid trusting frontend
   const { items, total, reserva } = await buildItemsAndTotalFromReserva(reservaId);
-  // If computed total is zero, prefer the fixed valor_total stored on reserva (package price)
-  let computedTotal = Number(total || 0);
-  if (!computedTotal || computedTotal <= 0) {
-    computedTotal = Number(reserva?.valor_total || process.env.NAMORADOS_RESERVA_PRECO || process.env.NAMORADOS_PACKAGE_PRICE || 480.00);
-  }
+  
+  // Base package price (defaults to 480.00 if not specified)
+  const basePrice = Number(process.env.NAMORADOS_RESERVA_PRECO || process.env.NAMORADOS_PACKAGE_PRICE || 480.00);
 
-  // If items are empty or total derived was zero, create a single item representing the package
-  const finalItems = (items && items.length > 0 && computedTotal > 0) ? items : [{ title: 'Reserva Dia dos Namorados - JrCoffee', quantity: 1, unit_price: Number(computedTotal) }];
+  // The final items list must ALWAYS include the base package price
+  const finalItems = [
+    { title: 'Pacote Reserva Dia dos Namorados - JrCoffee', quantity: 1, unit_price: basePrice },
+    ...items
+  ];
+
+  const computedTotal = basePrice + total;
 
   // Persist computed total in reserva (atomic update)
   await prisma.namorados_reservas.update({ where: { id: Number(reservaId) }, data: { valor_total: computedTotal } });
@@ -77,6 +88,7 @@ export async function createPreference({ reservaId, payer, back_urls }) {
     auto_return: 'approved',
   };
 
+  console.log("MERCADOPAGO PREFERENCE SENDING:", JSON.stringify(preference, null, 2));
   const response = await mercadopago.preferences.create({ body: preference });
   return { preference: response, total: computedTotal };
 }

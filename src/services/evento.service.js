@@ -15,7 +15,16 @@ export class EventoService {
   }
 
   async obterMesasPorHorario(horario_slot) {
-    return await prisma.namorados_mesas.findMany({ where: { horario_slot } });
+    // Normalize aliases: frontend may send 'slot_21_30' but Prisma enum only has 'slot_21_00' and 'slot_19_00'
+    let slot = horario_slot;
+    if (!slot) throw new Error('HORARIO_SLOT_OBRIGATORIO');
+    if (slot === 'slot_21_30') slot = 'slot_21_00';
+
+    // validate allowed values to avoid Prisma enum errors
+    const allowed = ['slot_19_00', 'slot_21_00'];
+    if (!allowed.includes(slot)) throw new Error('HORARIO_SLOT_INVALIDO');
+
+    return await prisma.namorados_mesas.findMany({ where: { horario_slot: slot } });
   }
 
   async bloquearMesa(mesaId, sessaoBloqueio) {
@@ -102,8 +111,7 @@ export class EventoService {
           foto_url,
           valor_total: packagePrice,
           token_voucher: tokenVoucher,
-          status_pagamento: 'pendente',
-          sessao_bloqueio
+          status_pagamento: 'pendente'
         }
       });
 
@@ -149,17 +157,34 @@ export class EventoService {
       pending: `${hostFrontend.replace(/\/$/, '')}/namorados/pendente`
     };
 
-    const { preference, total } = await PagamentoService.createPreference({ reservaId: reserva.id, payer, back_urls });
+    try {
+      const { preference, total } = await PagamentoService.createPreference({ reservaId: reserva.id, payer, back_urls });
 
-    // extrair init_point e id da preference de forma resiliente
-    const prefBody = preference?.body || preference?.response || preference;
-    const init_point = prefBody?.init_point || prefBody?.sandbox_init_point || null;
-    const prefId = prefBody?.id || prefBody?.preference_id || null;
+      // extrair init_point e id da preference de forma resiliente
+      const prefBody = preference?.body || preference?.response || preference;
+      const init_point = prefBody?.init_point || prefBody?.sandbox_init_point || null;
+      const prefId = prefBody?.id || prefBody?.preference_id || null;
 
-    // Salvar transacao_gateway_id e valor_total calculado
-    await prisma.namorados_reservas.update({ where: { id: reserva.id }, data: { transacao_gateway_id: String(prefId || ''), valor_total: Number(total || 0) } });
+      // Salvar transacao_gateway_id e valor_total calculado
+      await prisma.namorados_reservas.update({ where: { id: reserva.id }, data: { transacao_gateway_id: String(prefId || ''), valor_total: Number(total || 0) } });
 
-    return { init_point, reserva_id: reserva.id };
+      return { init_point, reserva_id: reserva.id };
+    } catch (err) {
+      // Attempt to rollback reservation and unlock the mesa to avoid leaving it blocked
+      try {
+        await prisma.namorados_reservas.delete({ where: { id: reserva.id } });
+      } catch (e) {
+        console.warn('Falha ao excluir reserva após erro de pagamento', e);
+      }
+      try {
+        await prisma.namorados_mesas.update({ where: { id: mesa_id }, data: { status: 'disponivel', sessao_bloqueio: null, bloqueada_ate: null } });
+      } catch (e) {
+        console.warn('Falha ao liberar mesa após erro de pagamento', e);
+      }
+      const errOut = new Error('ERRO_PAGAMENTO');
+      errOut.details = err?.message || String(err);
+      throw errOut;
+    }
   }
 
   async realizarCheckin(tokenVoucher) {
