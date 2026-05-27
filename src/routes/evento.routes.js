@@ -13,5 +13,6 @@ router.post('/mesas/bloquear', (req, res) => controller.bloquearMesa(req, res));
 router.post('/upload', uploadMiddleware.single('foto'), (req, res) => controller.fazerUpload(req, res));
 router.post('/reservas', validateSchema(reservaSchema), (req, res) => controller.criarReserva(req, res)); // Validação Zod injetada aqui!
 router.post('/checkin', (req, res) => controller.fazerCheckin(req, res));
+router.get('/reservas/:id', (req, res) => controller.buscarReserva(req, res));
 
 export default router;

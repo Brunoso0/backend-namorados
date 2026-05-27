@@ -1,5 +1,6 @@
 import prisma from '../config/prisma.js';
 import QRCode from 'qrcode';
+import * as PagamentoService from './pagamento.service.js';
 
 export class EventoService {
   
@@ -45,8 +46,8 @@ export class EventoService {
     }
 
     const tokenVoucher = `VCH-${Math.random().toString(36).substr(2, 9).toUpperCase()}-${Date.now().toString().slice(-4)}`;
-    const valorTotal = 480.00; // Valor padrão da reserva (Pacote casal)
 
+    // Criar reserva e manter mesa bloqueada (status_pagamento = 'pendente')
     const reserva = await prisma.$transaction(async (tx) => {
       const dbCliente = await tx.namorados_clientes.upsert({
         where: { email: cliente.email },
@@ -61,8 +62,10 @@ export class EventoService {
           entrada_cardapio_id,
           observacoes,
           foto_url,
-          valor_total: valorTotal,
+          valor_total: 0, // será calculado pelo serviço de pagamento
           token_voucher: tokenVoucher,
+          status_pagamento: 'pendente',
+          sessao_bloqueio
         }
       });
 
@@ -88,17 +91,37 @@ export class EventoService {
         });
       }
 
+      // Marcar mesa como bloqueada (não marcada como reservada até confirmação do pagamento)
+      const agora = new Date();
+      const trintaMinutosDepois = new Date(agora.getTime() + 30 * 60 * 1000);
       await tx.namorados_mesas.update({
         where: { id: mesa_id },
-        data: { status: 'reservada', sessao_bloqueio: null, bloqueada_ate: null }
+        data: { status: 'bloqueada', sessao_bloqueio, bloqueada_ate: trintaMinutosDepois }
       });
 
       return novaReserva;
     });
 
-    const qrCodeBase64 = await QRCode.toDataURL(tokenVoucher);
-    
-    return { reserva_id: reserva.id, token_voucher: tokenVoucher, qr_code: qrCodeBase64, valor_total: valorTotal };
+    // Criar preferência de pagamento usando o serviço de pagamento
+    const payer = { name: cliente.nome_completo, email: cliente.email, phone: { number: cliente.whatsapp || '' } };
+    const hostFrontend = process.env.FRONTEND_URL_NAMORADOS || process.env.APP_URL || 'http://localhost:3000';
+    const back_urls = {
+      success: `${hostFrontend.replace(/\/$/, '')}/namorados/sucesso`,
+      failure: `${hostFrontend.replace(/\/$/, '')}/namorados/erro`,
+      pending: `${hostFrontend.replace(/\/$/, '')}/namorados/pendente`
+    };
+
+    const { preference, total } = await PagamentoService.createPreference({ reservaId: reserva.id, payer, back_urls });
+
+    // extrair init_point e id da preference de forma resiliente
+    const prefBody = preference?.body || preference?.response || preference;
+    const init_point = prefBody?.init_point || prefBody?.sandbox_init_point || null;
+    const prefId = prefBody?.id || prefBody?.preference_id || null;
+
+    // Salvar transacao_gateway_id e valor_total calculado
+    await prisma.namorados_reservas.update({ where: { id: reserva.id }, data: { transacao_gateway_id: String(prefId || ''), valor_total: Number(total || 0) } });
+
+    return { init_point, reserva_id: reserva.id };
   }
 
   async realizarCheckin(tokenVoucher) {
@@ -125,5 +148,18 @@ export class EventoService {
         prato: i.principal.nome
       }))
     };
+  }
+
+  async obterReservaPorId(id) {
+    const reserva = await prisma.namorados_reservas.findUnique({
+      where: { id: Number(id) },
+      include: {
+        cliente: true,
+        mesa: true,
+        integrantes: { include: { principal: true, sobremesa: true } },
+        bebidas_intencao: { include: { bebida: true } }
+      }
+    });
+    return reserva;
   }
 }

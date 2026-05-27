@@ -134,6 +134,20 @@ export async function handleNotification(id, topic, rawBody = {}) {
       data: { status_pagamento: 'pago', transacao_gateway_id: String(paymentData?.id || id) }
     });
 
+    if (updated.count > 0) {
+      // se atualizamos reservas pelo token, buscar e marcar a(s) mesas correspondentes como reservadas
+      try {
+        const reservas = await prisma.namorados_reservas.findMany({ where: { token_voucher: externalRef } });
+        for (const r of reservas) {
+          if (r.mesa_id) {
+            await prisma.namorados_mesas.update({ where: { id: Number(r.mesa_id) }, data: { status: 'reservada', sessao_bloqueio: null, bloqueada_ate: null } });
+          }
+        }
+      } catch (e) {
+        console.warn('Erro ao atualizar mesas após pagamento', e);
+      }
+    }
+
     return { updated: updated.count > 0 };
   } catch (err) {
     console.error('Error handling MercadoPago notification', err);

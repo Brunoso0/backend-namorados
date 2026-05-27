@@ -50,13 +50,22 @@ export class EventoController {
   async criarReserva(req, res) {
     try {
       const resultado = await eventoService.criarReservaCompleta(req.body);
-      return res.status(201).json({
-        sucesso: true,
-        ...resultado,
-        pagamento: { metodo: 'PIX', pix_copia_e_cola: 'codigo_gerado_aqui...' }
-      });
+      // resultado deve conter init_point e reserva_id
+      return res.status(201).json({ sucesso: true, ...resultado });
     } catch (error) {
       if (error.message === 'MESA_INDISPONIVEL') return res.status(409).json({ sucesso: false, erro: error.message });
+      return res.status(500).json({ sucesso: false, erro: error.message });
+    }
+  }
+
+  async buscarReserva(req, res) {
+    try {
+      const { id } = req.params;
+      if (!id) return res.status(400).json({ sucesso: false, erro: 'id é obrigatório' });
+      const reserva = await eventoService.obterReservaPorId(Number(id));
+      if (!reserva) return res.status(404).json({ sucesso: false, erro: 'RESERVA_NAO_ENCONTRADA' });
+      return res.status(200).json({ sucesso: true, reserva });
+    } catch (error) {
       return res.status(500).json({ sucesso: false, erro: error.message });
     }
   }
