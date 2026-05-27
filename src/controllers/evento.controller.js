@@ -54,6 +54,7 @@ export class EventoController {
       return res.status(201).json({ sucesso: true, ...resultado });
     } catch (error) {
       if (error.message === 'MESA_INDISPONIVEL') return res.status(409).json({ sucesso: false, erro: error.message });
+      if (error.message === 'DADOS_INVALIDOS_SERVER') return res.status(400).json({ sucesso: false, erro: 'DADOS_INVALIDOS', detalhes: error.details || [] });
       return res.status(500).json({ sucesso: false, erro: error.message });
     }
   }

@@ -38,7 +38,44 @@ export class EventoService {
   }
 
   async criarReservaCompleta(dados) {
-    const { cliente, mesa_id, sessao_bloqueio, entrada_cardapio_id, observacoes, foto_url, integrantes, bebidas_intencao } = dados;
+    const { cliente, mesa_id, sessao_bloqueio, entrada_cardapio_id, observacoes, foto_url } = dados;
+    let { integrantes, bebidas_intencao } = dados;
+
+    // Sanitize and validate incoming arrays to avoid Prisma unchecked nested create errors
+    if (!Array.isArray(integrantes)) integrantes = [];
+    integrantes = integrantes.map(i => ({
+      nome_integrante: i?.nome_integrante ? String(i.nome_integrante).trim() : '',
+      principal_cardapio_id: Number(i?.principal_cardapio_id) || null,
+      sobremesa_cardapio_id: Number(i?.sobremesa_cardapio_id) || null
+    }));
+
+    if (!Array.isArray(bebidas_intencao)) bebidas_intencao = [];
+    bebidas_intencao = bebidas_intencao.map(b => ({
+      bebida_cardapio_id: Number(b?.bebida_cardapio_id) || null,
+      tipo_consumo: b?.tipo_consumo || null,
+      quantidade: Number(b?.quantidade) || 1
+    }));
+
+    // Basic server-side validation
+    const invalids = [];
+    if (!cliente || !cliente.email) invalids.push('cliente.email');
+    if (!mesa_id) invalids.push('mesa_id');
+    if (!sessao_bloqueio) invalids.push('sessao_bloqueio');
+    if (!entrada_cardapio_id) invalids.push('entrada_cardapio_id');
+    integrantes.forEach((it, idx) => {
+      if (!it.nome_integrante) invalids.push(`integrantes[${idx}].nome_integrante`);
+      if (!it.principal_cardapio_id) invalids.push(`integrantes[${idx}].principal_cardapio_id`);
+      if (!it.sobremesa_cardapio_id) invalids.push(`integrantes[${idx}].sobremesa_cardapio_id`);
+    });
+    bebidas_intencao.forEach((b, idx) => {
+      if (!b.bebida_cardapio_id) invalids.push(`bebidas_intencao[${idx}].bebida_cardapio_id`);
+      if (!['garrafa', 'taca'].includes(b.tipo_consumo)) invalids.push(`bebidas_intencao[${idx}].tipo_consumo`);
+    });
+    if (invalids.length > 0) {
+      const err = new Error('DADOS_INVALIDOS_SERVER');
+      err.details = invalids;
+      throw err;
+    }
 
     const mesa = await prisma.namorados_mesas.findUnique({ where: { id: mesa_id } });
     if (!mesa || mesa.status === 'reservada' || (mesa.status === 'bloqueada' && mesa.sessao_bloqueio !== sessao_bloqueio)) {
@@ -46,6 +83,7 @@ export class EventoService {
     }
 
     const tokenVoucher = `VCH-${Math.random().toString(36).substr(2, 9).toUpperCase()}-${Date.now().toString().slice(-4)}`;
+    const packagePrice = Number(process.env.NAMORADOS_RESERVA_PRECO || process.env.NAMORADOS_PACKAGE_PRICE || 480.00);
 
     // Criar reserva e manter mesa bloqueada (status_pagamento = 'pendente')
     const reserva = await prisma.$transaction(async (tx) => {
@@ -62,7 +100,7 @@ export class EventoService {
           entrada_cardapio_id,
           observacoes,
           foto_url,
-          valor_total: 0, // será calculado pelo serviço de pagamento
+          valor_total: packagePrice,
           token_voucher: tokenVoucher,
           status_pagamento: 'pendente',
           sessao_bloqueio

@@ -52,12 +52,20 @@ async function buildItemsAndTotalFromReserva(reservaId) {
 export async function createPreference({ reservaId, payer, back_urls }) {
   // Build items and total server-side to avoid trusting frontend
   const { items, total, reserva } = await buildItemsAndTotalFromReserva(reservaId);
+  // If computed total is zero, prefer the fixed valor_total stored on reserva (package price)
+  let computedTotal = Number(total || 0);
+  if (!computedTotal || computedTotal <= 0) {
+    computedTotal = Number(reserva?.valor_total || process.env.NAMORADOS_RESERVA_PRECO || process.env.NAMORADOS_PACKAGE_PRICE || 480.00);
+  }
+
+  // If items are empty or total derived was zero, create a single item representing the package
+  const finalItems = (items && items.length > 0 && computedTotal > 0) ? items : [{ title: 'Reserva Dia dos Namorados - JrCoffee', quantity: 1, unit_price: Number(computedTotal) }];
 
   // Persist computed total in reserva (atomic update)
-  await prisma.namorados_reservas.update({ where: { id: Number(reservaId) }, data: { valor_total: total } });
+  await prisma.namorados_reservas.update({ where: { id: Number(reservaId) }, data: { valor_total: computedTotal } });
 
   const preference = {
-    items,
+    items: finalItems,
     payer,
     external_reference: String(reserva.token_voucher || reservaId),
     back_urls: back_urls || {
@@ -70,7 +78,7 @@ export async function createPreference({ reservaId, payer, back_urls }) {
   };
 
   const response = await mercadopago.preferences.create({ body: preference });
-  return { preference: response, total };
+  return { preference: response, total: computedTotal };
 }
 
 export async function handleNotification(id, topic, rawBody = {}) {
