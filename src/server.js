@@ -18,6 +18,8 @@ const allowedOrigins = [
   'http://127.0.0.1:3000',
   'https://namorados.jrcoffee.com.br',
   'http://namorados.jrcoffee.com.br',
+  'https://www.jrcoffee.com.br',
+  'http://www.jrcoffee.com.br',
   'https://jrcoffee.com.br',
   'http://jrcoffee.com.br',
 ];
