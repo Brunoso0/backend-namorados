@@ -27,3 +27,22 @@ export async function webhook(req, res) {
     return res.status(500).json({ error: 'Erro no webhook' });
   }
 }
+
+export async function syncPayment(req, res) {
+  try {
+    const { payment_id, external_reference } = req.body;
+    if (!payment_id || !external_reference) {
+      return res.status(400).json({ error: 'payment_id and external_reference are required' });
+    }
+
+    const result = await PagamentoService.syncPayment(payment_id, external_reference);
+    if (result.success) {
+      return res.json({ sucesso: true, reserva: result.reserva });
+    } else {
+      return res.status(400).json({ error: result.reason });
+    }
+  } catch (err) {
+    console.error('Error syncing payment:', err);
+    return res.status(500).json({ error: 'Erro ao sincronizar pagamento' });
+  }
+}
