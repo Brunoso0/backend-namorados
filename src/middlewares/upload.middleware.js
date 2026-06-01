@@ -18,7 +18,8 @@ const storage = multer.diskStorage({
   }
 });
 
-export const uploadMiddleware = multer({ 
+// No explicit file size limit here — allow the app or storage layer to enforce limits.
+export const uploadMiddleware = multer({
   storage,
-  limits: { fileSize: 5 * 1024 * 1024 } // Limite de 5MB por foto
+  limits: { filesSize: 20 * 1024 * 1024 } 
 });
