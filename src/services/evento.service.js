@@ -35,15 +35,14 @@ export class EventoService {
       const agora = new Date();
       if (mesa.status === 'reservada') throw new Error('MESA_JA_RESERVADA');
 
-      const agoraOffset = new Date(agora.getTime() - (4 * 60 + 20) * 60 * 1000);
-      if (mesa.status === 'bloqueada' && mesa.sessao_bloqueio !== sessaoBloqueio && mesa.bloqueada_ate > agoraOffset) {
+      if (mesa.status === 'bloqueada' && mesa.sessao_bloqueio !== sessaoBloqueio && mesa.bloqueada_ate > agora) {
         throw new Error('MESA_OCUPADA_TEMPORARIAMENTE');
       }
 
-      const dezMinutosDepoisOffset = new Date(agora.getTime() - (4 * 60 + 20) * 60 * 1000 + 10 * 60 * 1000);
+      const dezMinutosDepois = new Date(Date.now() + 10 * 60 * 1000);
       return await tx.namorados_mesas.update({
         where: { id: mesaId },
-        data: { status: 'bloqueada', sessao_bloqueio: sessaoBloqueio, bloqueada_ate: dezMinutosDepoisOffset },
+        data: { status: 'bloqueada', sessao_bloqueio: sessaoBloqueio, bloqueada_ate: dezMinutosDepois },
       });
     });
   }
@@ -140,11 +139,10 @@ export class EventoService {
       }
 
       // Marcar mesa como bloqueada (não marcada como reservada até confirmação do pagamento)
-      const agora = new Date();
-      const dezMinutosDepoisOffset = new Date(agora.getTime() - (4 * 60 + 20) * 60 * 1000 + 10 * 60 * 1000);
+      const dezMinutosDepois = new Date(Date.now() + 10 * 60 * 1000);
       await tx.namorados_mesas.update({
         where: { id: mesa_id },
-        data: { status: 'bloqueada', sessao_bloqueio, bloqueada_ate: dezMinutosDepoisOffset }
+        data: { status: 'bloqueada', sessao_bloqueio, bloqueada_ate: dezMinutosDepois }
       });
 
       return novaReserva;

@@ -216,7 +216,13 @@ export class AdminService {
         badge: b.quantidade > 1 ? `x${b.quantidade}` : b.tipo_consumo === 'garrafa' ? 'Garrafa' : 'Taça'
       })),
       specialRequest: res.observacoes || 'Nenhuma solicitação especial.',
-      alertNote: res.status_pagamento === 'pago' ? 'Pagamento Confirmado' : 'Pagamento Pendente',
+      alertNote: res.status_pagamento === 'pago'
+        ? 'Pagamento Confirmado'
+        : (res.status_pagamento === 'recusado'
+          ? 'Pagamento Recusado'
+          : (res.status_pagamento === 'conflito_mesa'
+            ? 'Conflito de Mesa (Ação Requerida)'
+            : 'Pagamento Pendente')),
       timeline
     };
   }

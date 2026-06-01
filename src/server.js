@@ -7,6 +7,7 @@ import eventoRoutes from './routes/evento.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 import cardapioRoutes from './routes/cardapio.routes.js';
 import pagamentoRoutes from './routes/pagamento.routes.js';
+import uploadRoutes from './routes/upload.routes.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -43,7 +44,7 @@ app.use(express.json());
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 // Rotas de cardápio (admin CRUD)
 app.use('/api/v1/admin', cardapioRoutes);
 
@@ -59,6 +60,7 @@ app.get('/api/v1/admin/notificacoes-checkin', (req, res) => {
 app.use('/api/v1/evento', eventoRoutes);
 app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/pagamento', pagamentoRoutes);
+app.use('/api/v1', uploadRoutes);
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {

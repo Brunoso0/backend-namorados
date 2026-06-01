@@ -1,17 +1,20 @@
 import multer from 'multer';
 import path from 'path';
-import crypto from 'crypto';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    // Aponta para a pasta uploads na raiz do projeto
-    cb(null, 'uploads/');
+    // Salva na pasta src/uploads (que é ../uploads em relação a src/middlewares)
+    cb(null, path.join(__dirname, '../uploads'));
   },
   filename: (req, file, cb) => {
-    // Gera um hash aleatório para o nome do arquivo
-    const hash = crypto.randomBytes(10).toString('hex');
-    const ext = path.extname(file.originalname);
-    cb(null, `${hash}${ext}`);
+    // Nome do arquivo: timestamp + nome original limpo
+    const timestamp = Date.now();
+    const safeName = file.originalname.replace(/[^a-zA-Z0-9.]/g, '_');
+    cb(null, `${timestamp}-${safeName}`);
   }
 });
 

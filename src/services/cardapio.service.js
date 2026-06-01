@@ -1,7 +1,7 @@
 import prisma from '../config/prisma.js';
 
 export class CardapioService {
-  async criarPrato({ nome, descricao, tipo_item, estoque_disponivel, ativo }) {
+  async criarPrato({ nome, descricao, tipo_item, estoque_disponivel, ativo, imagem }) {
     return await prisma.namorados_cardapio.create({
       data: {
         nome,
@@ -9,11 +9,12 @@ export class CardapioService {
         tipo_item,
         estoque_disponivel: estoque_disponivel ?? 0,
         ativo: ativo ?? true,
+        imagem,
       },
     });
   }
 
-  async editarPrato(id, { nome, descricao, tipo_item, estoque_disponivel, ativo }) {
+  async editarPrato(id, { nome, descricao, tipo_item, estoque_disponivel, ativo, imagem }) {
     return await prisma.namorados_cardapio.update({
       where: { id },
       data: {
@@ -22,6 +23,7 @@ export class CardapioService {
         tipo_item,
         estoque_disponivel,
         ativo,
+        imagem,
       },
     });
   }

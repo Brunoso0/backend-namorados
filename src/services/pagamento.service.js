@@ -93,6 +93,80 @@ export async function createPreference({ reservaId, payer, back_urls }) {
   return { preference: response, total: computedTotal };
 }
 
+export async function processPaymentStatusUpdate(externalReference, paymentStatus, paymentId) {
+  return await prisma.$transaction(async (tx) => {
+    // 1. Fetch reservation
+    const reserva = await tx.namorados_reservas.findUnique({
+      where: { token_voucher: externalReference },
+      include: { mesa: true }
+    });
+
+    if (!reserva) {
+      return { success: false, reason: 'Reservation not found for this external_reference' };
+    }
+
+    if (reserva.status_pagamento === 'pago') {
+      return { success: true, action: 'already_paid' };
+    }
+
+    if (paymentStatus === 'approved') {
+      // Check retry scenario
+      if (reserva.status_pagamento === 'recusado') {
+        // Verify if mesa is still available
+        if (reserva.mesa && reserva.mesa.status === 'disponivel') {
+          // Mesa is available: update reservation to pago and lock mesa
+          await tx.namorados_reservas.update({
+            where: { id: reserva.id },
+            data: { status_pagamento: 'pago', transacao_gateway_id: String(paymentId) }
+          });
+          await tx.namorados_mesas.update({
+            where: { id: reserva.mesa_id },
+            data: { status: 'reservada', sessao_bloqueio: null, bloqueada_ate: null }
+          });
+          return { success: true, action: 'approved_retry_success' };
+        } else {
+          // Mesa is already occupied/blocked!
+          // Maintain payment but signal conflict_mesa
+          await tx.namorados_reservas.update({
+            where: { id: reserva.id },
+            data: { status_pagamento: 'conflito_mesa', transacao_gateway_id: String(paymentId) }
+          });
+          return { success: true, action: 'approved_retry_conflict' };
+        }
+      } else {
+        // Normal flow (pending/etc.) -> pago
+        await tx.namorados_reservas.update({
+          where: { id: reserva.id },
+          data: { status_pagamento: 'pago', transacao_gateway_id: String(paymentId) }
+        });
+        if (reserva.mesa_id) {
+          await tx.namorados_mesas.update({
+            where: { id: reserva.mesa_id },
+            data: { status: 'reservada', sessao_bloqueio: null, bloqueada_ate: null }
+          });
+        }
+        return { success: true, action: 'approved_normal' };
+      }
+    } else if (paymentStatus === 'rejected' || paymentStatus === 'cancelled') {
+      // Update reservation to recusado
+      await tx.namorados_reservas.update({
+        where: { id: reserva.id },
+        data: { status_pagamento: 'recusado', transacao_gateway_id: String(paymentId) }
+      });
+      // Free the table immediately
+      if (reserva.mesa_id) {
+        await tx.namorados_mesas.update({
+          where: { id: reserva.mesa_id },
+          data: { status: 'disponivel', sessao_bloqueio: null, bloqueada_ate: null }
+        });
+      }
+      return { success: true, action: 'rejected_or_cancelled' };
+    }
+
+    return { success: false, reason: `Unhandled payment status: ${paymentStatus}` };
+  });
+}
+
 export async function handleNotification(id, topic, rawBody = {}) {
   try {
     let paymentData = null;
@@ -106,7 +180,7 @@ export async function handleNotification(id, topic, rawBody = {}) {
     if (id) {
       try {
         const resp = await mercadopago.payment.get({ id });
-        paymentData = resp;
+        paymentData = resp?.body || resp?.response || resp;
       } catch (err) {
         // if not found, continue to other strategies
         paymentData = null;
@@ -148,27 +222,14 @@ export async function handleNotification(id, topic, rawBody = {}) {
       return { updated: false, reason: 'no_external_reference' };
     }
 
-    // Update reservation by token_voucher
-    const updated = await prisma.namorados_reservas.updateMany({
-      where: { token_voucher: externalRef },
-      data: { status_pagamento: 'pago', transacao_gateway_id: String(paymentData?.id || id) }
-    });
-
-    if (updated.count > 0) {
-      // se atualizamos reservas pelo token, buscar e marcar a(s) mesas correspondentes como reservadas
-      try {
-        const reservas = await prisma.namorados_reservas.findMany({ where: { token_voucher: externalRef } });
-        for (const r of reservas) {
-          if (r.mesa_id) {
-            await prisma.namorados_mesas.update({ where: { id: Number(r.mesa_id) }, data: { status: 'reservada', sessao_bloqueio: null, bloqueada_ate: null } });
-          }
-        }
-      } catch (e) {
-        console.warn('Erro ao atualizar mesas após pagamento', e);
-      }
+    const paymentStatus = paymentData?.status;
+    if (!paymentStatus) {
+      console.warn('Could not determine payment status from MercadoPago notification', { id, topic, rawBody });
+      return { updated: false, reason: 'no_payment_status' };
     }
 
-    return { updated: updated.count > 0 };
+    const result = await processPaymentStatusUpdate(externalRef, paymentStatus, paymentData.id || id);
+    return { updated: result.success };
   } catch (err) {
     console.error('Error handling MercadoPago notification', err);
     throw err;
@@ -183,32 +244,15 @@ export async function syncPayment(paymentId, externalReference) {
     // Consultar a API do Mercado Pago pelo payment_id
     const payment = await mercadopago.payment.get({ id: String(paymentId) });
     const paymentData = payment?.body || payment?.response || payment;
+    const paymentStatus = paymentData?.status;
 
-    // Verificar se o status é 'approved'
-    if (paymentData.status !== 'approved') {
-      return { success: false, status: paymentData.status, reason: 'Payment status is not approved' };
+    if (!paymentStatus) {
+      return { success: false, reason: 'Could not determine payment status' };
     }
 
-    // Forçar a atualização da reserva no Prisma para status_pagamento: 'pago' e salvar gateway id
-    const updated = await prisma.namorados_reservas.updateMany({
-      where: { token_voucher: externalReference },
-      data: { status_pagamento: 'pago', transacao_gateway_id: String(paymentId) }
-    });
+    const result = await processPaymentStatusUpdate(externalReference, paymentStatus, paymentId);
 
-    if (updated.count > 0) {
-      // Buscar e marcar a(s) mesas correspondentes como reservadas
-      const reservas = await prisma.namorados_reservas.findMany({
-        where: { token_voucher: externalReference }
-      });
-      for (const r of reservas) {
-        if (r.mesa_id) {
-          await prisma.namorados_mesas.update({
-            where: { id: Number(r.mesa_id) },
-            data: { status: 'reservada', sessao_bloqueio: null, bloqueada_ate: null }
-          });
-        }
-      }
-
+    if (result.success) {
       // Buscar a reserva atualizada com todos os relacionamentos para retornar ao frontend
       const reservaCompleta = await prisma.namorados_reservas.findFirst({
         where: { token_voucher: externalReference },
@@ -220,10 +264,10 @@ export async function syncPayment(paymentId, externalReference) {
         }
       });
 
-      return { success: true, reserva: reservaCompleta };
+      return { success: true, status: paymentStatus, action: result.action, reserva: reservaCompleta };
     }
 
-    return { success: false, reason: 'Reservation not found for this external_reference' };
+    return { success: false, status: paymentStatus, reason: result.reason };
   } catch (err) {
     console.error('Error syncing payment:', err);
     throw err;

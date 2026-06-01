@@ -156,6 +156,7 @@ model namorados_cardapio {
   preco_taca         Decimal?                        @db.Decimal(10, 2)
   estoque_disponivel Int                             @default(0)
   ativo              Boolean                         @default(true)
+  imagem             String?                         @db.VarChar(255)
   criado_em          DateTime                        @default(now())
   bebidas_reserva    namorados_reserva_bebidas[]
   principais_reserva namorados_reserva_integrantes[] @relation("IntegrantePrincipal")
@@ -260,6 +261,8 @@ enum StatusPagamento {
   pago
   cancelado
   estornado
+  recusado
+  conflito_mesa
 }
 
 enum TipoConsumo {

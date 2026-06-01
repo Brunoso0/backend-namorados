@@ -5,9 +5,9 @@ const cardapioService = new CardapioService();
 export class CardapioController {
   async criarPrato(req, res) {
     try {
-      const { nome, descricao, tipo_item, estoque_disponivel, ativo } = req.body;
+      const { nome, descricao, tipo_item, estoque_disponivel, ativo, imagem } = req.body;
       if (!nome || !tipo_item) return res.status(400).json({ sucesso: false, erro: 'DADOS_INCOMPLETOS' });
-      const prato = await cardapioService.criarPrato({ nome, descricao, tipo_item, estoque_disponivel, ativo });
+      const prato = await cardapioService.criarPrato({ nome, descricao, tipo_item, estoque_disponivel, ativo, imagem });
       return res.status(201).json({ sucesso: true, prato });
     } catch (error) {
       return res.status(500).json({ sucesso: false, erro: error.message });
@@ -17,8 +17,8 @@ export class CardapioController {
   async editarPrato(req, res) {
     try {
       const { id } = req.params;
-      const { nome, descricao, tipo_item, estoque_disponivel, ativo } = req.body;
-      const prato = await cardapioService.editarPrato(Number(id), { nome, descricao, tipo_item, estoque_disponivel, ativo });
+      const { nome, descricao, tipo_item, estoque_disponivel, ativo, imagem } = req.body;
+      const prato = await cardapioService.editarPrato(Number(id), { nome, descricao, tipo_item, estoque_disponivel, ativo, imagem });
       return res.status(200).json({ sucesso: true, prato });
     } catch (error) {
       return res.status(500).json({ sucesso: false, erro: error.message });
