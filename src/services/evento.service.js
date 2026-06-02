@@ -140,7 +140,7 @@ export class EventoService {
       }
 
       // Marcar mesa como bloqueada (não marcada como reservada até confirmação do pagamento)
-      const dezMinutosDepois = new Date(Date.now() + 10 * 60 * 1000);
+      const dezMinutosDepois = new Date(Date.now() + 5 * 60 * 1000);
       await tx.namorados_mesas.update({
         where: { id: mesa_id },
         data: { status: 'bloqueada', sessao_bloqueio, bloqueada_ate: dezMinutosDepois }
