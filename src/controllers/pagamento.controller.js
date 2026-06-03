@@ -16,8 +16,9 @@ export async function createPreference(req, res) {
 export async function webhook(req, res) {
   try {
     // MercadoPago sends id and topic as query params for notifications
-    const id = req.query.id || req.body.id || req.body.data?.id;
-    const topic = req.query.topic || req.query.type || req.body.type || req.body.topic;
+    // Prioritize payment id inside `data.id` (it's the real payment id), then fall back to other places
+    const id = req.query['data.id'] || req.body?.data?.id || req.query.id || req.body?.id;
+    const topic = req.query.topic || req.query.type || req.body?.type || req.body?.topic;
 
     const result = await PagamentoService.handleNotification(id, topic, req.body);
     if (!result) return res.status(204).send();

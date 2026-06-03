@@ -5,6 +5,7 @@ async function buildItemsAndTotalFromReserva(reservaId) {
   const reserva = await prisma.namorados_reservas.findUnique({
     where: { id: Number(reservaId) },
     include: {
+      cliente: true, // ADICIONADO: precisamos dos dados do cliente para payer.last_name
       entrada: true,
       integrantes: { include: { principal: true, sobremesa: true } },
       bebidas_intencao: { include: { bebida: true } }
@@ -66,8 +67,8 @@ export async function createPreference({ reservaId, payer, back_urls }) {
 
   // The final items list must ALWAYS include the base package price
   const finalItems = [
-    { title: 'Pacote Reserva Dia dos Namorados - JrCoffee', quantity: 1, unit_price: basePrice },
-    ...items
+    { title: 'Pacote Reserva Dia dos Namorados - JrCoffee', quantity: 1, unit_price: basePrice, description: 'Reserva de mesa e menu para o Dia dos Namorados' },
+    ...items.map(item => ({ ...item, description: item.description || item.title }))
   ];
 
   const computedTotal = basePrice + total;
@@ -75,9 +76,18 @@ export async function createPreference({ reservaId, payer, back_urls }) {
   // Persist computed total in reserva (atomic update)
   await prisma.namorados_reservas.update({ where: { id: Number(reservaId) }, data: { valor_total: computedTotal } });
 
+  // Ensure payer has last_name (Mercado Pago recommends `payer.last_name`)
+  const finalPayer = { ...(payer || {}) };
+  if (!finalPayer.last_name) {
+    const fullName = reserva?.cliente?.nome_completo || finalPayer.name || '';
+    const parts = String(fullName).trim().split(/\s+/).filter(Boolean);
+    finalPayer.last_name = parts.length > 1 ? parts.slice(-1).join(' ') : '';
+    if (!finalPayer.name && parts.length > 0) finalPayer.name = parts.slice(0, -1).join(' ') || parts[0];
+  }
+
   const preference = {
     items: finalItems,
-    payer,
+    payer: finalPayer,
     external_reference: String(reserva.token_voucher),
     back_urls: back_urls || {
       success: process.env.MERCADOPAGO_BACK_URL_SUCCESS || `${process.env.APP_URL || 'http://localhost:3001'}/success`,
@@ -183,6 +193,7 @@ export async function handleNotification(id, topic, rawBody = {}) {
         paymentData = resp?.body || resp?.response || resp;
       } catch (err) {
         // if not found, continue to other strategies
+        console.error(`Falha ao buscar pagamento ID ${id} no Mercado Pago:`, err?.message || err);
         paymentData = null;
       }
     }
