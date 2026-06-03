@@ -181,33 +181,58 @@ export async function handleNotification(id, topic, rawBody = {}) {
   try {
     let paymentData = null;
 
-    if (!id) {
-      // try to extract id from raw body
-      id = rawBody.data?.id || rawBody.id || rawBody.resource?.id || id;
+    // 1. Tentar extrair o ID corretamente do evento (prioriza data.id)
+    let eventId = id;
+    if (!eventId && rawBody?.data?.id) eventId = rawBody.data.id;
+    if (!eventId && rawBody?.id) eventId = rawBody.id;
+    if (!eventId && rawBody?.resource) {
+      const parts = String(rawBody.resource).split('/').filter(Boolean);
+      eventId = parts.length ? parts.pop() : eventId;
     }
 
-    // Try direct payment lookup
-    if (id) {
-      try {
-        const resp = await mercadopago.payment.get({ id });
-        paymentData = resp?.body || resp?.response || resp;
-      } catch (err) {
-        // if not found, continue to other strategies
-        console.error(`Falha ao buscar pagamento ID ${id} no Mercado Pago:`, err?.message || err);
-        paymentData = null;
-      }
-    }
+    // 2. Normalizar o tópico (algumas variações contém 'payment')
+    const normalizedTopic = typeof topic === 'string' && topic.includes('payment') ? 'payment' : topic;
 
-    // If not found and topic indicates merchant_order or fallback, try merchant_orders
-    if (!paymentData) {
+    // 3. Roteamento inteligente baseado no tópico
+    if (normalizedTopic === 'merchant_order') {
       try {
-        const mo = await mercadopago.merchant_orders.get({ merchantOrderId: id });
-        const payments = mo.payments || [];
+        const mo = await mercadopago.merchant_orders.get({ merchantOrderId: eventId });
+        const payments = mo?.body?.payments || mo?.response?.payments || mo?.payments || [];
         paymentData = payments[0] || null;
       } catch (e) {
-        paymentData = null;
+        console.error(`Falha ao buscar merchant_order ID ${eventId}:`, e?.message || e);
+      }
+    } else if (normalizedTopic === 'payment') {
+      try {
+        const resp = await mercadopago.payment.get({ id: eventId });
+        paymentData = resp?.body || resp?.response || resp;
+      } catch (err) {
+        console.error(`Falha ao buscar pagamento ID ${eventId} no Mercado Pago:`, err?.message || err);
+      }
+    } else {
+      // Fallback: tentar payment primeiro, depois merchant_order
+      if (eventId) {
+        try {
+          const resp = await mercadopago.payment.get({ id: eventId });
+          paymentData = resp?.body || resp?.response || resp;
+        } catch (err) {
+          console.error(`Falha ao buscar pagamento ID ${eventId}:`, err?.message || err);
+          paymentData = null;
+        }
+      }
+      if (!paymentData && eventId) {
+        try {
+          const mo = await mercadopago.merchant_orders.get({ merchantOrderId: eventId });
+          const payments = mo?.body?.payments || mo?.response?.payments || mo?.payments || [];
+          paymentData = payments[0] || null;
+        } catch (e) {
+          console.error(`Falha ao buscar merchant_order ID ${eventId}:`, e?.message || e);
+        }
       }
     }
+
+    // manter `id` para logs/fallbacks posteriores
+    id = eventId || id;
 
     // If still not found, attempt to parse external_reference from body (some test payloads send it)
     let externalRef = null;
