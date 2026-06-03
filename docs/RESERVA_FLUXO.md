@@ -142,7 +142,7 @@ await prisma.$transaction(async (tx) => {
   "reserva_id": 123,
   "token_voucher": "VCH-XXXX-9999",
   "qr_code": "data:image/png;base64,...",
-  "valor_total": 480.00,
+  "valor_total": 600.00,
   "pagamento": { "metodo": "PIX", "pix_copia_e_cola": "codigo_gerado_aqui..." }
 }
 ```

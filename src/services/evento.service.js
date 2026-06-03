@@ -94,7 +94,7 @@ export class EventoService {
     }
 
     const tokenVoucher = `VCH-${Math.random().toString(36).substr(2, 9).toUpperCase()}-${Date.now().toString().slice(-4)}`;
-    const packagePrice = getEnvNumber('NAMORADOS_RESERVA_PRECO', getEnvNumber('NAMORADOS_PACKAGE_PRICE', 480.00));
+    const packagePrice = getEnvNumber('NAMORADOS_RESERVA_PRECO', getEnvNumber('NAMORADOS_PACKAGE_PRICE', 600.00));
 
     // Criar reserva e manter mesa bloqueada (status_pagamento = 'pendente')
     const reserva = await prisma.$transaction(async (tx) => {

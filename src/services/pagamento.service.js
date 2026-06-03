@@ -61,8 +61,8 @@ export async function createPreference({ reservaId, payer, back_urls }) {
   // Build items and total server-side to avoid trusting frontend
   const { items, total, reserva } = await buildItemsAndTotalFromReserva(reservaId);
   
-  // Base package price (defaults to 480.00 if not specified)
-  const basePrice = Number(process.env.NAMORADOS_RESERVA_PRECO || process.env.NAMORADOS_PACKAGE_PRICE || 480.00);
+  // Base package price (defaults to 600.00 if not specified)
+  const basePrice = Number(process.env.NAMORADOS_RESERVA_PRECO || process.env.NAMORADOS_PACKAGE_PRICE || 600.00);
 
   // The final items list must ALWAYS include the base package price
   const finalItems = [
