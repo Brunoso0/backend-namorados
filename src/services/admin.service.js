@@ -105,7 +105,7 @@ export class AdminService {
         status = 'Aguardando';
         name = 'Bloqueada Temporariamente';
         footer = 'BLOQUEADA';
-      } else if (activeRes) {
+      } else if (activeRes && mesa.status === 'reservada' && activeRes.status_pagamento === 'pago') {
         if (activeRes.finalizada) {
           status = 'Finalizada';
           name = activeRes.integrantes.length > 0 
@@ -179,6 +179,7 @@ export class AdminService {
     if (!mesa || mesa.reservas.length === 0) return null;
 
     const res = mesa.reservas[0];
+    if (mesa.status !== 'reservada' || res.status_pagamento !== 'pago') return null;
     const coupleName = res.integrantes.length > 0
       ? res.integrantes.map(i => i.nome_integrante).join(' & ')
       : res.cliente.nome_completo;
@@ -256,12 +257,12 @@ export class AdminService {
       } else if (status === 'Ocupada') {
         await prisma.namorados_reservas.update({
           where: { id: latestRes.id },
-          data: { check_in_realizado: true, data_check_in: new Date(), finalizada: false }
+          data: { check_in_realizado: true, data_check_in: new Date(), finalizada: false, status_pagamento: 'pago' }
         });
       } else if (status === 'Aguardando') {
         await prisma.namorados_reservas.update({
           where: { id: latestRes.id },
-          data: { check_in_realizado: false, data_check_in: null, finalizada: false }
+          data: { check_in_realizado: false, data_check_in: null, finalizada: false, status_pagamento: 'pago' }
         });
       }
     }
