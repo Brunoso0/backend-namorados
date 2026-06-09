@@ -17,6 +17,7 @@ const app = express();
 const allowedOrigins = [
   'http://localhost:3000',
   'http://127.0.0.1:3000',
+  'http://172.16.100.234',
   'https://namorados.jrcoffee.com.br',
   'http://namorados.jrcoffee.com.br',
   'https://www.jrcoffee.com.br',
